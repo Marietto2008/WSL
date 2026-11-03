@@ -72,6 +72,7 @@ void wsl::core::Config::ParseConfigFile(_In_opt_ LPCWSTR ConfigFilePath, _In_opt
     std::vector<ConfigKey> keys{
         ConfigKey(ConfigSetting::Kernel, KernelPath),
         ConfigKey(ConfigSetting::KernelCommandLine, KernelCommandLine),
+        ConfigKey(ConfigSetting::UefiKernel, EnableUefiKernel),
         ConfigKey(ConfigSetting::KernelModules, KernelModulesPath),
         ConfigKey(ConfigSetting::Memory, MemoryString(MemorySizeBytes)),
         ConfigKey(ConfigSetting::Processors, ProcessorCount),

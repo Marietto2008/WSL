@@ -215,6 +215,12 @@ void WslCoreVm::Initialize(const GUID& VmId, const wil::shared_handle& UserToken
 
     // If a private kernel was not specified, use the default.
     m_defaultKernel = m_vmConfig.KernelPath.empty();
+    if (m_defaultKernel && m_vmConfig.EnableUefiKernel)
+    {
+        WSL_LOG("UefiKernelIgnored", TraceLoggingValue("wsl2.uefiKernel requires wsl2.kernel", "reason"));
+        m_vmConfig.EnableUefiKernel = false;
+    }
+
     if (m_defaultKernel)
     {
 #ifdef WSL_KERNEL_PATH
@@ -248,9 +254,18 @@ void WslCoreVm::Initialize(const GUID& VmId, const wil::shared_handle& UserToken
             THROW_WIN32_MSG(error, "Failed to open kernel: '%ls'", m_vmConfig.KernelPath.c_str());
         }
 
+        // wsl2.uefiKernel: the private kernel is an EFI application (e.g. FreeBSD's loader.efi). As for ARM64 below,
+        // the VM boots it from a temporary directory shared over VmbFs, holding a copy of the file.
+        if (m_vmConfig.EnableUefiKernel)
+        {
+            m_uefiBootPath = m_tempPath / L"uefi";
+            wil::CreateDirectoryDeep(m_uefiBootPath.c_str());
+            const auto targetPath = m_uefiBootPath / m_vmConfig.KernelPath.filename();
+            THROW_IF_WIN32_BOOL_FALSE(CopyFileW(m_vmConfig.KernelPath.c_str(), targetPath.c_str(), TRUE));
+        }
         // Direct boot is not supported on ARM64. Modify the rootfs directory to be a temporary directory that contains
         // copies of the initrd file and private kernel.
-        if constexpr (wsl::shared::Arm64)
+        else if constexpr (wsl::shared::Arm64)
         {
             m_rootFsPath = m_tempPath / LXSS_ROOTFS_DIRECTORY;
             wil::CreateDirectoryDeep(m_rootFsPath.c_str());
@@ -1817,7 +1832,21 @@ std::wstring WslCoreVm::GenerateConfigJson()
     // Set up boot params.
     //
     // N.B. Linux kernel direct boot is not yet supported on ARM64.
-    if constexpr (!wsl::shared::Arm64)
+    if (m_vmConfig.EnableUefiKernel)
+    {
+        // wsl2.uefiKernel: UEFI boot of the EFI application over VmbFs, with only the user's command line (the Linux
+        // parameters built above mean nothing to it). FreeBSD's loader.efi turns key=value arguments into variables
+        // (rootdev=...).
+        auto bootThis = hcs::UefiBootEntry{};
+        bootThis.DeviceType = hcs::UefiBootDevice::VmbFs;
+        bootThis.VmbFsRootPath = m_uefiBootPath.c_str();
+        bootThis.DevicePath = L"\\" + m_vmConfig.KernelPath.filename().wstring();
+        bootThis.OptionalData = m_vmConfig.KernelCommandLine;
+        hcs::Uefi uefiSettings{};
+        uefiSettings.BootThis = std::move(bootThis);
+        vmSettings.Chipset.Uefi = std::move(uefiSettings);
+    }
+    else if constexpr (!wsl::shared::Arm64)
     {
         auto linuxKernelDirect = hcs::LinuxKernelDirect{};
         linuxKernelDirect.KernelFilePath = m_vmConfig.KernelPath.c_str();

@@ -294,6 +294,7 @@ private:
     WslTraceLoggingClient m_traceClient;
     std::filesystem::path m_rootFsPath;
     std::filesystem::path m_tempPath;
+    std::filesystem::path m_uefiBootPath; // wsl2.uefiKernel: cartella condivisa via VmbFs con la copia dell'applicazione EFI
     wil::shared_handle m_userToken;
     wil::unique_handle m_restrictedToken;
     bool m_swapFileCreated = false;

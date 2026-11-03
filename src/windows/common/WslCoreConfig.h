@@ -236,6 +236,7 @@ struct FirewallConfiguration
 namespace ConfigSetting {
     static constexpr auto Kernel = "wsl2.kernel";
     static constexpr auto KernelCommandLine = "wsl2.kernelCommandLine";
+    static constexpr auto UefiKernel = "wsl2.uefiKernel";
     static constexpr auto KernelModules = "wsl2.kernelModules";
     static constexpr auto Memory = "wsl2.memory";
     static constexpr auto Processors = "wsl2.processors";
@@ -312,6 +313,9 @@ struct Config
 
     std::filesystem::path KernelPath;
     std::wstring KernelCommandLine;
+    // wsl2.uefiKernel: wsl2.kernel e' un'applicazione EFI (es. loader.efi di FreeBSD), avviata via UEFI/VmbFs
+    // anche su x86; OptionalData = solo wsl2.kernelCommandLine.
+    bool EnableUefiKernel = false;
     std::wstring KernelModulesList;
     std::filesystem::path KernelModulesPath;
     UINT64 MemorySizeBytes = 0;
